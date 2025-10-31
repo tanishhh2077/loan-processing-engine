@@ -1,2 +1,0 @@
-FROM p4-hdfs
-CMD ["sh", "-c", "export CLASSPATH=$HADOOP_HOME/bin/hdfs:$(hdfs classpath --glob) && hdfs datanode -D dfs.datanode.data.dir=/var/datanode -fs hdfs://boss:9000"]
