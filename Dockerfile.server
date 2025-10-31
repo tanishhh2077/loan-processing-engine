@@ -1,0 +1,45 @@
+# ------------------------------------------------------------
+# Dockerfile.server  (for p4-server image)
+# ------------------------------------------------------------
+FROM p4-hdfs
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        python3 python3-pip openjdk-11-jre-headless curl bash procps ca-certificates gnupg && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install --no-cache-dir --break-system-packages \
+        grpcio grpcio-tools \
+        pandas \
+	matplotlib \
+        pyarrow==17.0.0 \
+        mysql-connector-python \
+        requests
+
+
+ENV HADOOP_HOME=/hadoop-3.3.6
+ENV HADOOP_CONF_DIR=/hadoop-3.3.6/etc/hadoop
+ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+ENV ARROW_LIBHDFS_DIR=/usr/lib/hadoop/lib/native
+ENV PATH="${HADOOP_HOME}/bin:${PATH}"
+
+WORKDIR /app
+COPY lender.proto client.py server.py ./
+
+RUN python3 -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. lender.proto
+
+RUN ln -s /app/client.py /client.py
+
+RUN printf '%s\n' \
+ '#!/usr/bin/env bash' \
+ 'set -euo pipefail' \
+ 'export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64' \
+ 'export HADOOP_HOME=/hadoop-3.3.6' \
+ 'export PATH="$HADOOP_HOME/bin:$PATH"' \
+ 'export CLASSPATH=$($HADOOP_HOME/bin/hadoop classpath --glob)' \
+ 'echo "[server] CLASSPATH computed successfully"' \
+ 'exec python3 /app/server.py' \
+ > /entrypoint.sh && chmod +x /entrypoint.sh
+
+EXPOSE 5000
+ENTRYPOINT ["/entrypoint.sh"]
